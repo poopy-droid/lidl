@@ -1,217 +1,90 @@
-# Lidl Connect Datenverbrauchs-Benachrichtigung 📱
+# Lidl Connect Extender
 
-Ein Skript, das sich automatisch in dein **Lidl-Connect-Konto** einloggt, deinen Datenverbrauch überwacht und **automatisch +1 GB nachbucht**, sobald 80 % deines Volumens verbraucht sind — plus Benachrichtigungen über **Telegram** und/oder **Discord**.
+Diese Version erweitert die bestehende Lidl-Connect-Implementierung um eine frühere und zuverlässigere Nachbuchung, adaptive Prüfintervalle und eine robustere Verarbeitung der Daten aus dem Lidl-Dashboard.
 
-So gehst du nie wieder unerwartet ohne Datenvolumen aus.
+Der Schwerpunkt liegt auf Problemen und Verbesserungsmöglichkeiten, die bei der praktischen Nutzung aufgefallen sind.
 
-> ⚠️ **Hinweis:** Dieses Skript dient ausschließlich zu Demonstrationszwecken. Der Einsatz automatisierter Skripte/Bots zur Automatisierung ist laut Lidl-Richtlinien strikt untersagt. Verstöße können zu einem **sofortigen Ausschluss bzw. zur Kündigung** führen. Du nutzt es auf eigene Verantwortung.
+## 🔧 Wichtigste Änderungen
 
----
+### 🔄 Verbesserte Nachbuchungslogik
 
-## ✨ Funktionen
+Die Nachbuchung wurde von der bisherigen **1-GB-Grenze** auf eine **80-%-Verbrauchsschwelle** umgestellt.
 
-- **Automatische Anmeldung** – Playwright-Login in dein Lidl-Connect-Konto (keine manuelle Eingabe nötig)
-- **Datenabruf** – liest verbleibendes Tarif- und Refill-Volumen live aus dem Lidl-Dash-Board
-- **Robustes Web-Reading** – erkennt sich ändernde Lidl-DOM-Strukturen automatisch (Selector-Priorisierung + Positionsfallback, Inhalt-Wartung), ohne dass das Skript angepasst werden muss
-- **Automatische Nachbuchung** – +1 GB, ab 80 % Verbrauch; Zyklus wiederholt sich, bis das Nachfüll-Kontingent deines Plans aufgebraucht ist
-- **Adaptive Intervalle** – Check-Intervall skaliert nach verbliebenem Volumen **und** deiner Internet-Geschwindigkeit, Keep-Alive nach Volumen und Verbrauch
-- **Benachrichtigungssystem** – Status-, Refill- und Fehlermeldungen per Telegram und/oder Discord
-- **Automatische Updates** – prüft optional GitHub und aktualisiert sich selbst
-- **Watchdog** – 30-Sekunden-Heartbeat; erkennt hängende Prozesse, startet Browser neu
-- **Robuste Fehlerbehandlung** – Retry, 10-min-Cool-down, Browser-Restart bei wiederholten Fehlern
+Statt erst zu reagieren, wenn weniger als 1 GB verfügbar sind, wird jetzt bei 80 % Verbrauch nachgebucht. Dadurch bleiben im Normalbetrieb etwa **20 % des ursprünglichen Tarifvolumens als Datenpuffer** erhalten.
 
----
+Der Fortschritt bis zur 80-%-Schwelle wird zusätzlich angezeigt, sodass jederzeit erkennbar ist, wie weit der Verbrauch fortgeschritten ist.
 
-## 🔁 Wie die automatische Nachbuchung funktioniert
+### 📊 Adaptive Prüfintervalle
 
-1. Das Skript liest nach jedem Check dein **Tarifvolumen** und dein **Refill-Volumen** aus der Lidl-Seite.
-2. Ab **80 % Verbrauch** des Gesamtvolumens klickt es `Refill aktivieren` → **+1 GB**.
-3. Verbraucht das 1 GB auf → nächster Check → **nächstes 1 GB** → und so fort.
-4. Die **verbliebenen 20 % deines Tarifs bleiben unangetastet** — das Refill-Volumen wird zum eigentlichen Datenpuffer.
-5. Fehlversuch (z. B. Refill-Kontingent aus, UI geändert) → **10 Minuten Cool-down**, dann neuer Versuch.
-6. Der Zyklus endet, wenn dein Plan keine Nachfüllungen mehr erlaubt — danach zählt dein unangetasteter Tarif-Buffer weiter.
+Die Prüfintervalle werden dynamisch anhand des verfügbaren Datenvolumens, des aktuellen Verbrauchs und der konfigurierten Internetgeschwindigkeit berechnet.
 
-Der Fortschritt zur 80 %-Schwelle erscheint als Bar im Log und in den Benachrichtigungen, z. B.:
+Die Internetgeschwindigkeit wird über `.env` konfiguriert:
+
+```env
+INTERNET_SPEED_MBPS=500
+```
+
+`500` entspricht **500 Mbps** und dient als Standardwert.
+
+Mit zunehmendem Verbrauch werden die Prüfungen automatisch häufiger. Kurz vor Erreichen der 80-%-Schwelle kann das Intervall bis auf **30 Sekunden** reduziert werden, damit die Nachbuchung zeitnah erkannt und ausgelöst werden kann.
+
+Zusätzlich wird auf jedes berechnete Prüfintervall ein **Jitter von 0–50 %** angewendet. Die tatsächliche Wartezeit liegt dadurch zufällig zwischen dem berechneten Intervall und bis zu 50 % darüber. Ein berechnetes Intervall von 30 Sekunden führt beispielsweise zu einer zufälligen Wartezeit von 30 bis 45 Sekunden.
+
+Dadurch entstehen keine starren, exakt wiederkehrenden Prüfzeitpunkte, während die berechnete Mindestwartezeit erhalten bleibt.
+
+### 🔔 Benachrichtigungen
+
+Status- und Erfolgsmeldungen wurden erweitert und zeigen den aktuellen Verbrauch sowie den Fortschritt bis zur Nachbuchung direkt an.
+
+Beispiel:
 
 ```text
+📡 Lidl-Extender
+
 ⏳ WAITING FOR 80%
+
 used 18.2/26.0 GB (70%)
-[████████████████░░]
+[██████████████████░░]
 88% of 80% used · to 80%: 2.6 GB
 ```
 
----
+Bei erreichter Schwelle:
 
-## 📊 Adaptive Intervalle
+```text
+📡 Lidl-Extender
 
-Das **Check-Intervall** ist **kein fester Ticker** — es skaliert nach:
+🔄 RECHARGING NOW
 
-1. **Verbliebenem Datenvolumen** (mehr Daten → längere Wartezeit)
-2. **Internet-Geschwindigkeit** über `INTERNET_SPEED_MBPS` (Platzhalter: 500 Mbps)
-   - Skalierungsfaktor: `500 / speed`, eingezogent auf **0.5 – 3.0**
-   - Schnelleres Netz → kürzere Intervalle · Langsameres Netz → längere Intervalle
-
-Das **Keep-Alive-Intervall** ist ebenfalls adaptiv (Basis nach verbliebenem Volumen, sinkt mit dem Verbrauch — Details s. u.).
-
-| Verfügbare Daten | Check-Intervall (bei 500 Mbps) |
-|:---|---:|
-| ≥ 10 GB  | 15–30 min  |
-| ≥ 5 GB   | 10–15 min  |
-| ≥ 3 GB   | 5–7,5 min  |
-| ≥ 2 GB   | 2,5–4 min  |
-| ≥ 1,2 GB | 1,5–2,5 min |
-| ≥ 1 GB   | 1–1,5 min  |
-| < 1 GB   | 1 min      |
-
-**Keep-Alive** (Session halten): Basis 2 min je 25 GB, max. 30 min, sinkt linear auf **30 s** an, wenn die 80 %-Schwelle erreicht ist. Jitter +0–50 % — Intervalle werden nur verlängert, nie verkürzt.
-
----
-
-## 🌐 Robustes Web-Reading (Lidl-DOM)
-
-Das Lidl-Dash-Board ändert sich gelegentlich — das Skript reagiert darauf automatisch:
-
-1. **Selector-Priorisierung** – Tarif- und Refill-Volumen werden über mehrere bekannte Selectoren gesucht:
-   * erst exakt (`label[for="DATA"]`)
-   * dann mit Präfix für das neue Format (`label[for^="progress-DATA"]` — z. B. für `progress-DATA-0` seit `app-consumptions-v2`)
-2. **Positionsfallback** – keine Selectoren getroffen → die `unit-display`-Labels in `.app-consumption-list` werden positionell zugeordnet (1. = Tarif, 2. = Refill).
-3. **Inhalt-Wartung** – wird erst geparst, wenn die Labels tatsächlich Text enthalten.
-4. **Dezimaltrenner & Einheiten** – deutsche Kommas (`0,5`) werden umgewandelt; die Einheit (`GB`) wird mitgelesen.
-
-→ Verändert Lidl das Layout leicht, läuft das Skript weiter.
-
----
-
-## 📦 Installation
-
-### Voraussetzungen
-
-- **Node.js** (Version 16 oder höher) + npm
-- Ein **Lidl-Connect-Konto**
-- (Optional) Ein **Telegram-Bot** und/oder ein **Discord-Webhook**
-
-### Schritte
-
-```bash
-# 1. Repo klonen (dein Fork):
-git clone https://github.com/DEIN-BENUTZER/lidl
-cd lidl
-
-# 2. Abhängigkeiten installieren:
-npm install
-
-# 3. Playwright-Browser installieren:
-npx playwright install
-
-# 4. Konfiguration anlegen:
-cp .env.example .env
+used 20.8/26.0 GB (80%)
+[████████████████████]
+100% of 80% used
 ```
 
-### `.env` konfigurieren
+### 🔎 Verbesserte Datenerkennung
 
-Pflichtfeld `RUFNUMMER` + `PASSWORD` ausfüllen, den Rest nach Bedarf (siehe [Konfiguration](#-konfiguration-env)).
+Die Auswertung der Verbrauchs- und Refill-Daten wurde von einzelnen festen HTML-Elementen entkoppelt.
 
----
+Das Skript erkennt nun mehrere mögliche Strukturen des Lidl-Dashboards, darunter sowohl die bisherigen Datenfelder als auch neuere Elemente wie `progress-DATA-*` und `progress-REFILL`. Falls sich die Positionen oder IDs der Elemente ändern, steht zusätzlich eine positionsbasierte Erkennung innerhalb der Verbrauchsanzeige zur Verfügung.
 
-## ⚙️ Konfiguration (`.env`)
+Dadurch können Änderungen an der Darstellung des Lidl-Dashboards verarbeitet werden, ohne dass die Datenauswertung vollständig von einem bestimmten Selector abhängt.
 
-| Variable | Standard | Beschreibung |
-|---|:---|---|
-| `RUFNUMMER` | – *(Pflicht)* | Lidl-Login, mit `0` am Anfang |
-| `PASSWORD` | – *(Pflicht)* | Lidl-Login-Passwort |
-| `BROWSER` | `firefox` | `firefox`, `webkit` oder `chromium` |
-| `TELEGRAM_ALLOW` | `false` | Telegram-Benachrichtigungen aktivieren |
-| `TELEGRAM_TOKEN` | – | Token deines Telegram-Bots |
-| `TELEGRAM_CHAT_ID` | – | Chat-ID für die Nachrichten |
-| `DISCORD_ALLOW` | `false` | Discord-Benachrichtigungen aktivieren |
-| `DISCORD_WEBHOOK_URL` | – | Webhook-URL für Discord |
-| `KILL_EXISTING_PROCESSES` | `true` | Beendet **alle** Browser-Prozesse beim Start (Achtung: nicht parallel mit anderen Browser-Skripten laufen!) |
-| `KILL_SCRIPT_INSTANCES` | `true` | Beendet alte `script.js`-Instanzen (hilft bei 100 % CPU-Hängen) |
-| `AUTO_UPDATE` | `true` | Prüft GitHub nach neuerer Version, aktualisiert sich |
-| `SLEEP_MODE` | `smart` | `random` · `fixed` · `smart` — Wartezeit-Modus der Hauptschleife |
-| `SLEEP_TIME` | – | Festwert in Sekunden für `SLEEP_MODE=fixed` (min. 60 s) |
-| `INFO_LEVEL` | `info` | `info` · `warn` · `error` — Log-/Benachrichtigungsdetails (akzeptiert auch den alten Namen `INFOLEVEL`) |
-| `INTERNET_SPEED_MBPS` | `500` | Deine Internet-Geschwindigkeit in Mbps für die adaptive Intervall-Skalierung |
-| `HEADLESS` | *(headless)* | Auf `false` setzen, wenn du das Browser-Fenster sehen willst |
+### 🐛 Fehlerbehebungen und Stabilitätsverbesserungen
 
----
+Unter anderem wurden folgende Punkte angepasst:
 
-## 💻 Nutzung
+* zuverlässigere Verarbeitung des Refill-Volumens
+* korrigierte Verarbeitung der Datenwerte nach einer Nachbuchung
+* funktionierender Cool-down nach fehlgeschlagenen Nachbuchungsversuchen
+* zuverlässigeres Login- und Navigationsverhalten
+* bessere Verarbeitung veränderter Dashboard-Strukturen
+* zusätzliche Fehler- und Randfallbehandlung
 
-**Standard (headless):**
+## 🎯 Ziel
 
-```bash
-node script.js
-```
+Ziel der Änderungen ist es, die bestehende Implementierung stärker an den tatsächlichen Laufzeitdaten auszurichten und die Abhängigkeit von festen Zeitintervallen und einzelnen DOM-Strukturen zu reduzieren.
 
-**Windows-Start (headless, Browser-Fenster bleibt geschlossen):**
+Die Änderungen können vollständig übernommen oder je nach Bedarf auch einzeln betrachtet und übernommen werden.
 
-```
-start.bat
-```
+## Version
 
-**Längerer Betrieb (Linux):**
-
-```bash
-nohup node script.js &
-```
-
-**Docker:**
-
-```bash
-docker build -t lidl-extender .
-docker run -d --name lidl-extender --hostname lidl-extender --restart unless-stopped lidl-extender
-```
-
-Das Skript meldet sich ein, liest den aktuellen Verbrauch, sendet die Status-/Refill-Benachrichtigung und wiederholt den Zyklus mit adaptiv berechneten Intervallen.
-
----
-
-## 🐛 Troubleshooting
-
-| Problem | Ursache / Lösung |
-|---|---|
-| `ENV Fehler: RUFNUMMER oder PASSWORD fehlt` | `.env` fehlt oder Pflichtfelder leer — `.env.example` kopieren und ausfüllen |
-| `Zu viele NaN-Fehler` | Lidl-UI geändert oder Session abgelaufen — Skript startet den Browser automatisch neu und loggt sich wieder ein |
-| `Refill-Aktivierung fehlgeschlagen` | Kein Nachfüll-Kontingent mehr, Button/Text auf der Lidl-Seite geändert — 10 min Cool-down, dann neuer Versuch |
-| 100 % CPU, kein Fortschritt | Setze `KILL_SCRIPT_INSTANCES=true`, Skript startet neu |
-| Browser-Fenster soll sichtbar sein | `HEADLESS=false` (oder `start.bat` für den headless-Modus) |
-| Telegram/Discord nichts empfangen | `TELEGRAM_ALLOW`/`DISCORD_ALLOW` auf `true`, Token/Webhook prüfen |
-
----
-
-## 📂 Projektstruktur
-
-```
-├── .env.example          # Beispiel für die Umgebungsvariablen
-├── .env                  # Persönliche Zugangsdaten (nicht hochladen!)
-├── CHANGELOG.md          # Versionsverlauf
-├── Dockerfile            # Docker-Build-Konfiguration
-├── LICENSE               # GNU Public License v3.0
-├── package.json          # Abhängigkeiten und Metadaten (v1.2.4)
-├── package-lock.json     # Abhängigkeitsversionen
-├── README.md             # Diese Datei
-├── script.js             # Hauptskript
-└── start.bat             # Windows-Start (Headless)
-```
-
----
-
-## 📝 Version & Changelog
-
-Aktuelle Version: **1.2.4**
-
-Alle Änderungen sind detailliert in der [CHANGELOG](CHANGELOG.md) nachvollziehbar.
-
----
-
-## 📄 Lizenz
-
-Dieses Projekt steht unter der **GNU General Public License v3.0**.
-
----
-
-## 💖 Danke
-
-Danke, dass du dir dieses Projekt angesehen hast!
-Ich hoffe, es hilft dir, deinen Datenverbrauch immer im Blick zu behalten.
+**1.2.4**
