@@ -154,34 +154,7 @@ This prevents unnecessary browser restarts and repeated watchdog notifications w
 
 ### package-lock.json
 
-| Field   | Original | v1.2.4                    |
+| Field   | Original | v1.2.%                    |
 | ------- | -------- | ------------------------- |
-| Version | `1.0.0`  | `1.2.4`                   |
+| Version | `1.0.0`  | `1.2.%`                   |
 | License | `ISC`    | `GNU Public License v3.0` |
-
----
-
-## Working-copy files
-
-Never tracked by Git:
-
-* `start.bat` — launcher
-
-### Cleanup
-
-Removed temporary files:
-
-* `script.js.bak`
-* `__git_diff.txt`
-* `conv.txt`
-* `.editcheck.cjs`
-* `run-err.log`
-* `run-out.log`
-
-Ignored local/runtime files:
-
-* `.env`
-* `cookies.json`
-* `session_meta.json`
-* `lidl-extender-data/`
-* logs
