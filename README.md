@@ -87,4 +87,4 @@ Die Änderungen können vollständig übernommen oder je nach Bedarf auch einzel
 
 ## Version
 
-**1.2.4**
+**1.2.5**
