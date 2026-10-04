@@ -49,6 +49,17 @@ The underlying adaptive keep-alive logic is unchanged:
 * Minimum: 30 s
 * Recursive `setTimeout`
 
+### Robustere Lidl-Web-Erkennung
+
+Die Lidl-DOM-Struktur wurde robust gemacht (seit `app-consumptions-v2` sind die `for`-Attribute der `unit-display`-Labels z. B. `progress-DATA-0` statt exakt `DATA` / `REFILLABLE_DATA`):
+
+* `readConsumptionUsage(page)` als wiederverwendbarer Helper für Tarif- und Refill-Volumen
+* Selector-Priorisierung: erst exakt (`label[for="DATA"]`), dann mit Präfix (`label[for^="progress-DATA"]`)
+* Positionsfallback: bei nicht getroffenen Selectoren werden die Labels in `.app-consumption-list` positionell zugeordnet (1. = Tarif, 2. = Refill)
+* `waitForFunction` wartet, bis die `unit-display`-Labels Text enthalten, bevor geparst wird
+* `parseLabel()` versteht deutsche Dezimaltrenner (`,`) und liest die `unit`-Span
+* Refill-Daten werden nach jeder Nachbuchung über denselben Helper neu gelesen
+
 ### Bugfixes (post-release)
 
 * **Version sync:** `package.json` still carried the stale version `1.1.1` while `script.js` and this changelog declare `1.2.4`. Synced `package.json` to `1.2.4` so the auto-update version comparison is consistent.

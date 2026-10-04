@@ -12,6 +12,7 @@ So gehst du nie wieder unerwartet ohne Datenvolumen aus.
 
 - **Automatische Anmeldung** – Playwright-Login in dein Lidl-Connect-Konto (keine manuelle Eingabe nötig)
 - **Datenabruf** – liest verbleibendes Tarif- und Refill-Volumen live aus dem Lidl-Dash-Board
+- **Robustes Web-Reading** – erkennt sich ändernde Lidl-DOM-Strukturen automatisch (Selector-Priorisierung + Positionsfallback, Inhalt-Wartung), ohne dass das Skript angepasst werden muss
 - **Automatische Nachbuchung** – +1 GB, ab 80 % Verbrauch; Zyklus wiederholt sich, bis das Nachfüll-Kontingent deines Plans aufgebraucht ist
 - **Adaptive Intervalle** – Check- und Keep-Alive-Intervalle skalieren nach verbliebenem Volumen **und** deiner Internet-Geschwindigkeit
 - **Benachrichtigungssystem** – Status-, Refill- und Fehlermeldungen per Telegram und/oder Discord
@@ -61,6 +62,21 @@ Check- und Keep-Alive-Intervalle sind **kein fester Ticker** — sie skalieren n
 | < 1 GB   | 1 min      |
 
 **Keep-Alive** (Session halten): Basis 2 min je 25 GB, max. 30 min, sinkt linear auf **30 s** an, wenn die 80 %-Schwelle erreicht ist. Jitter +0–50 % — Intervalle werden nur verlängert, nie verkürzt.
+
+---
+
+## 🌐 Robustes Web-Reading (Lidl-DOM)
+
+Das Lidl-Dash-Board ändert sich gelegentlich — das Skript reagiert darauf automatisch:
+
+1. **Selector-Priorisierung** – Tarif- und Refill-Volumen werden über mehrere bekannte Selectoren gesucht:
+   * erst exakt (`label[for="DATA"]`)
+   * dann mit Präfix für das neue Format (`label[for^="progress-DATA"]` — z. B. für `progress-DATA-0` seit `app-consumptions-v2`)
+2. **Positionsfallback** – keine Selectoren getroffen → die `unit-display`-Labels in `.app-consumption-list` werden positionell zugeordnet (1. = Tarif, 2. = Refill).
+3. **Inhalt-Wartung** – wird erst geparst, wenn die Labels tatsächlich Text enthalten.
+4. **Dezimaltrenner & Einheiten** – deutsche Kommas (`0,5`) werden umgewandelt; die Einheit (`GB`) wird mitgelesen.
+
+→ Verändert Lidl das Layout leicht, läuft das Skript weiter.
 
 ---
 
