@@ -63,11 +63,6 @@ Die Lidl-DOM-Struktur wurde robust gemacht (seit `app-consumptions-v2` sind die 
 * **Version sync:** `package.json` still carried the stale version `1.1.1` and `package-lock.json` the stale version `1.0.0` while `script.js` and this changelog declare `1.2.5`. Synced `package.json` and `package-lock.json` to `1.2.5` so the auto-update version comparison is consistent.
 * **Log level env var:** `.env.example` used `INFOLEVEL`, but the script only read `INFO_LEVEL` — the setting from the example was silently ignored. `.env.example` now uses `INFO_LEVEL`; the script also accepts `INFOLEVEL` for backward compatibility with existing `.env` files.
 
-### Unchanged
-
-* Page-load timeout values (30 s / 15 s) and in-script delays remain at their original values (only the wait event changed to `domcontentloaded`).
-* Version remains `1.2.4`.
-
 ---
 
 ## v1.2.5 — 80% refill refactor
