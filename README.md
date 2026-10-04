@@ -14,7 +14,7 @@ So gehst du nie wieder unerwartet ohne Datenvolumen aus.
 - **Datenabruf** – liest verbleibendes Tarif- und Refill-Volumen live aus dem Lidl-Dash-Board
 - **Robustes Web-Reading** – erkennt sich ändernde Lidl-DOM-Strukturen automatisch (Selector-Priorisierung + Positionsfallback, Inhalt-Wartung), ohne dass das Skript angepasst werden muss
 - **Automatische Nachbuchung** – +1 GB, ab 80 % Verbrauch; Zyklus wiederholt sich, bis das Nachfüll-Kontingent deines Plans aufgebraucht ist
-- **Adaptive Intervalle** – Check- und Keep-Alive-Intervalle skalieren nach verbliebenem Volumen **und** deiner Internet-Geschwindigkeit
+- **Adaptive Intervalle** – Check-Intervall skaliert nach verbliebenem Volumen **und** deiner Internet-Geschwindigkeit, Keep-Alive nach Volumen und Verbrauch
 - **Benachrichtigungssystem** – Status-, Refill- und Fehlermeldungen per Telegram und/oder Discord
 - **Automatische Updates** – prüft optional GitHub und aktualisiert sich selbst
 - **Watchdog** – 30-Sekunden-Heartbeat; erkennt hängende Prozesse, startet Browser neu
@@ -44,12 +44,14 @@ used 18.2/26.0 GB (70%)
 
 ## 📊 Adaptive Intervalle
 
-Check- und Keep-Alive-Intervalle sind **kein fester Ticker** — sie skalieren nach:
+Das **Check-Intervall** ist **kein fester Ticker** — es skaliert nach:
 
 1. **Verbliebenem Datenvolumen** (mehr Daten → längere Wartezeit)
 2. **Internet-Geschwindigkeit** über `INTERNET_SPEED_MBPS` (Platzhalter: 500 Mbps)
    - Skalierungsfaktor: `500 / speed`, eingezogent auf **0.5 – 3.0**
    - Schnelleres Netz → kürzere Intervalle · Langsameres Netz → längere Intervalle
+
+Das **Keep-Alive-Intervall** ist ebenfalls adaptiv (Basis nach verbliebenem Volumen, sinkt mit dem Verbrauch — Details s. u.).
 
 | Verfügbare Daten | Check-Intervall (bei 500 Mbps) |
 |:---|---:|

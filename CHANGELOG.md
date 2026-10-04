@@ -34,10 +34,8 @@ The interval controls how long the script waits before the next site reload/chec
 
 ### Keep-alive jitter
 
-Keep-alive jitter was changed from symmetric to additive jitter.
+Keep-alive jitter is now additive: +0–50 %.
 
-* Before: ±10%
-* Now: +0–50%
 * The calculated interval can only be extended, never shortened
 * Example: the 30-second minimum now produces 30–45 seconds
 
@@ -62,19 +60,19 @@ Die Lidl-DOM-Struktur wurde robust gemacht (seit `app-consumptions-v2` sind die 
 
 ### Bugfixes (post-release)
 
-* **Version sync:** `package.json` still carried the stale version `1.1.1` while `script.js` and this changelog declare `1.2.4`. Synced `package.json` to `1.2.4` so the auto-update version comparison is consistent.
+* **Version sync:** `package.json` still carried the stale version `1.1.1` and `package-lock.json` the stale version `1.0.0` while `script.js` and this changelog declare `1.2.4`. Synced `package.json` and `package-lock.json` to `1.2.4` so the auto-update version comparison is consistent.
 * **Log level env var:** `.env.example` used `INFOLEVEL`, but the script only read `INFO_LEVEL` — the setting from the example was silently ignored. `.env.example` now uses `INFO_LEVEL`; the script also accepts `INFOLEVEL` for backward compatibility with existing `.env` files.
 
 ### Unchanged
 
-* Page-load timeouts and delays remain at their original values.
+* Page-load timeout values (30 s / 15 s) and in-script delays remain at their original values (only the wait event changed to `domcontentloaded`).
 * Version remains `1.2.4`.
 
 ---
 
 ## v1.2.4 — 80% refill refactor
 
-Original repository state: `ff1d451` (v1.0.0)
+Original repository state: `ff1d451` (script.js v1.2.4, package-lock.json v1.0.0)
 
 ### Refill trigger
 
@@ -103,7 +101,7 @@ Added `buildRefillProgressLine(usage)` to show progress toward the refill thresh
 
 Example:
 
-```text id="x8r4pn"
+```text
 ⏳ WAITING FOR 80%
 used 18.2/26.0 GB (70%)
 [██████████████████░░]
@@ -112,7 +110,7 @@ used 18.2/26.0 GB (70%)
 
 At the threshold:
 
-```text id="m5q2vd"
+```text
 🔄 RECHARGING NOW
 used 20.8/26.0 GB (80%)
 [████████████████████]
@@ -168,7 +166,6 @@ This prevents unnecessary browser restarts and repeated watchdog notifications w
 Never tracked by Git:
 
 * `start.bat` — launcher
-* `_check_env.ps1` — environment check helper
 
 ### Cleanup
 
