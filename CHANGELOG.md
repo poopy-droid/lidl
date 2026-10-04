@@ -2,99 +2,125 @@
 
 ## 2026-10-04 — Working tree
 
-### Speed-based check interval
+Changes after `v1.2.5`.
 
-The main check interval is now adjusted according to the configured internet speed.
+### ⚡ Speed-adaptive check intervals
 
-* Added `INTERNET_SPEED_MBPS` to `.env` and `.env.example`
+The main Lidl page check/reload interval now adapts to the configured internet speed.
 
-  * Placeholder: `500`
-  * Empty/unset values fall back to `500 Mbps`
-* Added `SPEED_BASE_MBPS`, `SPEED_FACTOR_MIN`, and `SPEED_FACTOR_MAX`
-* Added `speedFactor()` and `scaledInterval()`
-* `getSmartInterval()` now scales its data-volume intervals by connection speed
-* Scaling factor: `500 / speed`, clamped to `0.5–3.0`
+```env
+INTERNET_SPEED_MBPS=500
+```
 
-  * Slower connection → longer wait
-  * Faster connection → shorter wait
+* Default/reference speed: `500 Mbps`
+* Empty or unset values fall back to `500 Mbps`
+* Scaling factor: `500 / speed`
+* Scaling is clamped to `0.5–3.0`
+* Slower connection → longer wait
+* Faster connection → shorter wait
 
-Base intervals at 500 Mbps:
+The existing data-volume intervals are scaled automatically instead of using the same timing for every connection.
 
-| Data volume | Check interval |
-| ----------- | -------------: |
-| ≥10 GB      |      15–30 min |
-| ≥5 GB       |      10–15 min |
-| ≥3 GB       |      5–7.5 min |
-| ≥2 GB       |      2.5–4 min |
-| ≥1.2 GB     |    1.5–2.5 min |
-| ≥1 GB       |      1–1.5 min |
-| <1 GB       |          1 min |
+The interval controls **when the next page check occurs**. It is separate from page-load/navigation timeouts.
 
-The interval controls how long the script waits before the next site reload/check. It determines how quickly the 80% refill threshold is detected; it is not a page-load timeout.
+### 🎲 Jittered scheduling
 
-### Keep-alive jitter
+A random **0–50% additive jitter** is applied to the calculated interval.
 
-Keep-alive jitter is now additive: +0–50 %.
+The interval can therefore be extended, but never shortened.
 
-* The calculated interval can only be extended, never shortened
-* Example: the 30-second minimum now produces 30–45 seconds
+Example:
 
-The underlying adaptive keep-alive logic is unchanged:
+```text
+Calculated interval: 30 s
+Actual interval:     30–45 s
+```
 
-* 2 min per 25 GB
-* Maximum base interval: 30 min
-* Linear reduction toward 80% usage
-* Minimum: 30 s
-* Recursive `setTimeout`
+This avoids identical, repeating check times while preserving the calculated minimum wait.
 
-### Robustere Lidl-Web-Erkennung
+### 🔎 More resilient Lidl data parsing
 
-Die Lidl-DOM-Struktur wurde robust gemacht (seit `app-consumptions-v2` sind die `for`-Attribute der `unit-display`-Labels z. B. `progress-DATA-0` statt exakt `DATA` / `REFILLABLE_DATA`):
+Lidl has changed the DOM structure used for consumption data. Newer versions use identifiers such as:
 
-* `readConsumptionUsage(page)` als wiederverwendbarer Helper für Tarif- und Refill-Volumen
-* Selector-Priorisierung: erst exakt (`label[for="DATA"]`), dann mit Präfix (`label[for^="progress-DATA"]`)
-* Positionsfallback: bei nicht getroffenen Selectoren werden die Labels in `.app-consumption-list` positionell zugeordnet (1. = Tarif, 2. = Refill)
-* `waitForFunction` wartet, bis die `unit-display`-Labels Text enthalten, bevor geparst wird
-* `parseLabel()` versteht deutsche Dezimaltrenner (`,`) und liest die `unit`-Span
-* Refill-Daten werden nach jeder Nachbuchung über denselben Helper neu gelesen
+```text
+progress-DATA-0
+progress-REFILL
+```
 
-### Bugfixes (post-release)
+instead of the older:
 
-* **Version sync:** `package.json` still carried the stale version `1.1.1` and `package-lock.json` the stale version `1.0.0` while `script.js` and this changelog declare `1.2.5`. Synced `package.json` and `package-lock.json` to `1.2.5` so the auto-update version comparison is consistent.
-* **Log level env var:** `.env.example` used `INFOLEVEL`, but the script only read `INFO_LEVEL` — the setting from the example was silently ignored. `.env.example` now uses `INFO_LEVEL`; the script also accepts `INFOLEVEL` for backward compatibility with existing `.env` files.
+```text
+DATA
+REFILLABLE_DATA
+```
+
+`readConsumptionUsage(page)` now handles both through a fallback chain:
+
+1. exact known selectors
+2. prefix-based selectors
+3. positional matching inside `.app-consumption-list`
+
+Additional parsing improvements:
+
+* waits until consumption labels contain actual text
+* supports German decimal separators such as `12,5 GB`
+* reads the unit value from the corresponding `unit` element
+* uses the same parser before and after refill
+* avoids invalid `NaN` totals when refill data is unavailable
+
+### 🛠 Configuration and metadata fixes
+
+* synchronized `package.json` and `package-lock.json` to `1.2.5`
+* fixed the `INFOLEVEL` / `INFO_LEVEL` mismatch
+* `INFOLEVEL` remains supported for existing configurations
 
 ---
 
-## v1.2.5 — 80% refill refactor
+# v1.2.5 — 80% refill refactor
 
-Original repository state: `ff1d451` (script.js v1.2.5, package-lock.json v1.0.0)
+Original repository state:
 
-### Refill trigger
+```text
+ff1d451
+```
 
-Refill activation changed from a fixed remaining-volume threshold to 80% total usage.
+### 🔄 Refill trigger changed to 80% usage
 
-* Added `REFILL_USAGE_THRESHOLD = 0.8`
-* Refill is attempted when usage reaches 80%, refill is available, and the retry cooldown has expired.
-* Usage is calculated from the live DOM.
-* Failed refill attempts now record `refillFailedAt`, making the existing 10-minute retry cooldown functional.
-* Updated refill log message to reflect the 80% threshold.
+The previous refill condition waited until less than approximately **1 GB** remained.
 
-### Keep-alive
+The new logic triggers refill at **80% total consumption**.
 
-The previous fixed 2-minute reload interval was replaced with an adaptive loop.
+```text
+REFILL_USAGE_THRESHOLD = 0.8
+```
 
-* Base interval: 2 min per 25 GB
-* Maximum: 30 min
-* Linear reduction as usage approaches 80%
-* Minimum: 30 s
-* Recursive `setTimeout`
-* Randomized interval using +0–50% jitter
+A refill is attempted when:
 
-### 80% progress reporting
+* 80% of the tariff volume has been consumed
+* refill data is available
+* the retry cooldown has expired
 
-Added `buildRefillProgressLine(usage)` to show progress toward the refill threshold.
+This keeps approximately **20% of the original tariff volume as a data buffer** under normal operation instead of waiting until the remaining volume is nearly exhausted.
 
-Example:
+Failed refill attempts now set `refillFailedAt`, making the existing **10-minute retry cooldown** effective.
+
+### 📈 Adaptive checking near the refill threshold
+
+The check interval adapts to the current state instead of remaining fixed.
+
+It considers:
+
+* available data volume
+* current consumption
+* proximity to the 80% threshold
+
+As consumption approaches 80%, checks become more frequent and can reach a minimum of **30 seconds**.
+
+Scheduling uses recursive `setTimeout` rather than a fixed `setInterval`.
+
+### 📊 80% progress reporting
+
+Added `buildRefillProgressLine(usage)` to show how close the current consumption is to the refill threshold.
 
 ```text
 ⏳ WAITING FOR 80%
@@ -112,44 +138,45 @@ used 20.8/26.0 GB (80%)
 100% of 80% used
 ```
 
-The progress block is included in Telegram, Discord, success messages, and output logs.
+The progress information is included in status/success output and the existing Telegram and Discord notifications.
 
-### Robustness and bug fixes
+### 🐛 Runtime and navigation fixes
 
-* Extracted `readConsumptionUsage(page)` into a reusable helper.
-* Added support for both legacy and current Lidl DOM identifiers, with positional label matching as fallback.
-* Refill data is re-read through the same helper after a refill.
-* Fixed post-refill reading of `refill.available`.
-* Prevented missing refill data from producing `NaN` totals.
-* Broadened the data-usage wait selector.
-* Fixed `.env` path handling with `fileURLToPath`.
-* Changed login navigation from `networkidle` to `domcontentloaded`.
-* `HEADLESS=false` is now respected.
-* Existing NaN handling, circuit breaker, and memory checks remain unchanged.
+* changed login navigation from `networkidle` to `domcontentloaded`
+* fixed `.env` path handling with `fileURLToPath`
+* `HEADLESS=false` is now respected
+* fixed post-refill reading of `refill.available`
+* prevented missing refill data from creating `NaN` totals
+* broadened the selector used while waiting for consumption data
 
-### Watchdog / heartbeat
+### ❤️ Watchdog / heartbeat
 
-Fixed false "Deadlock" detections during intentional long waits.
+Fixed false `Deadlock` detections during intentional long waits.
 
-* Added a 30-second heartbeat timer.
-* Added `isRestarting` to prevent overlapping browser restarts.
-* `restartBrowser()` updates the heartbeat immediately.
+* added a 30-second heartbeat timer
+* added `isRestarting` to prevent overlapping restarts
+* `restartBrowser()` updates the heartbeat immediately
 
-This prevents unnecessary browser restarts and repeated watchdog notifications while the script is legitimately waiting.
+This prevents unnecessary browser restarts and duplicate watchdog notifications while the script is legitimately waiting.
 
-### Messages
+### 💬 User-facing messages
 
-* Added `📡 Lidl-Extender` header to status and success messages.
-* Added the 80% progress block to status and success messages.
-* Added `formatDuration()` for human-readable wait times.
-* Removed raw seconds/milliseconds from user-facing messages.
-* Example: `Nächste Prüfung in 83 Min.` or `1 Std. 25 Min.`
-* Watchdog messages use the same duration formatting.
-* Other messages remain unchanged.
+Status and success messages now provide clearer runtime information.
 
-### package-lock.json
+Added:
 
-| Field   | Original | v1.2.%                    |
-| ------- | -------- | ------------------------- |
-| Version | `1.0.0`  | `1.2.%`                   |
-| License | `ISC`    | `GNU Public License v3.0` |
+* `📡 Lidl-Extender` header
+* 80% consumption progress
+* human-readable duration formatting
+
+For example:
+
+```text
+Nächste Prüfung in 83 Min.
+Nächste Prüfung in 1 Std. 25 Min.
+```
+
+Raw seconds/milliseconds are no longer shown in user-facing duration messages.
+
+---
+
