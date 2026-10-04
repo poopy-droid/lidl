@@ -49,6 +49,11 @@ The underlying adaptive keep-alive logic is unchanged:
 * Minimum: 30 s
 * Recursive `setTimeout`
 
+### Bugfixes (post-release)
+
+* **Version sync:** `package.json` still carried the stale version `1.1.1` while `script.js` and this changelog declare `1.2.4`. Synced `package.json` to `1.2.4` so the auto-update version comparison is consistent.
+* **Log level env var:** `.env.example` used `INFOLEVEL`, but the script only read `INFO_LEVEL` — the setting from the example was silently ignored. `.env.example` now uses `INFO_LEVEL`; the script also accepts `INFOLEVEL` for backward compatibility with existing `.env` files.
+
 ### Unchanged
 
 * Page-load timeouts and delays remain at their original values.
