@@ -60,7 +60,7 @@ Die Lidl-DOM-Struktur wurde robust gemacht (seit `app-consumptions-v2` sind die 
 
 ### Bugfixes (post-release)
 
-* **Version sync:** `package.json` still carried the stale version `1.1.1` and `package-lock.json` the stale version `1.0.0` while `script.js` and this changelog declare `1.2.4`. Synced `package.json` and `package-lock.json` to `1.2.4` so the auto-update version comparison is consistent.
+* **Version sync:** `package.json` still carried the stale version `1.1.1` and `package-lock.json` the stale version `1.0.0` while `script.js` and this changelog declare `1.2.5`. Synced `package.json` and `package-lock.json` to `1.2.5` so the auto-update version comparison is consistent.
 * **Log level env var:** `.env.example` used `INFOLEVEL`, but the script only read `INFO_LEVEL` — the setting from the example was silently ignored. `.env.example` now uses `INFO_LEVEL`; the script also accepts `INFOLEVEL` for backward compatibility with existing `.env` files.
 
 ### Unchanged
@@ -70,9 +70,9 @@ Die Lidl-DOM-Struktur wurde robust gemacht (seit `app-consumptions-v2` sind die 
 
 ---
 
-## v1.2.4 — 80% refill refactor
+## v1.2.5 — 80% refill refactor
 
-Original repository state: `ff1d451` (script.js v1.2.4, package-lock.json v1.0.0)
+Original repository state: `ff1d451` (script.js v1.2.5, package-lock.json v1.0.0)
 
 ### Refill trigger
 
